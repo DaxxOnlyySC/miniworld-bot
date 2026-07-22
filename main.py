@@ -635,7 +635,7 @@ async def on_message(message):
         return
 
     if content.startswith("!servers"):
-        if str(message.author.id) != OWNER_ID:
+        if str(message.author.id) != str(OWNER_ID):
             return
         guilds = client.guilds
         embed = discord.Embed(title=f"🌐 Bot ada di {len(guilds)} server", color=discord.Color.green())
