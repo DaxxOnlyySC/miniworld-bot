@@ -634,4 +634,14 @@ async def on_message(message):
         await message.channel.send(embed=embed)
         return
 
+    if content.startswith("!servers"):
+        if str(message.author.id) != OWNER_ID:
+            return
+        guilds = client.guilds
+        embed = discord.Embed(title=f"🌐 Bot ada di {len(guilds)} server", color=discord.Color.green())
+        for g in guilds:
+            embed.add_field(name=g.name, value=f"ID: `{g.id}` | Members: {g.member_count}", inline=True)
+        await message.channel.send(embed=embed)
+        return
+
 client.run(DISCORD_TOKEN)
