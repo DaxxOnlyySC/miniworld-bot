@@ -63,11 +63,13 @@ async def health_loop():
 def worker_check(action):
     status = worker_status.get(action, "offline")
     if status == "rate_limited":
-        return "❌ **CLOUDFLARE RATE LIMIT — WAIT UNTIL TOMORROW**"
+        embed = discord.Embed(title="CLOUDFLARE RATE LIMIT", description="Try again tomorrow.\n\n`!mwstatus` for details.", color=discord.Color.orange())
+        return embed
     elif status == "online":
         return None
     else:
-        return "❌ **Workers offline.** Try again later."
+        embed = discord.Embed(title="Workers Offline", description="Try again later.\n\n`!mwstatus` for details.", color=discord.Color.red())
+        return embed
 
 BADGE_NAMES = {
     "1001": "Demon Hunter", "1002": "Treasure Hunter", "1003": "Survival Expert",
@@ -103,8 +105,7 @@ class MWAuthModal(discord.ui.Modal, title="Masukkan Data Akun"):
 
         err = worker_check(self.action.lower())
         if err:
-            e = discord.Embed(title=err, color=discord.Color.red())
-            await interaction.followup.send(embed=e, ephemeral=True)
+            await interaction.followup.send(embed=err, ephemeral=True)
             return
 
         try:
@@ -382,7 +383,7 @@ async def on_message(message):
         if content.startswith("!kick"):
             err = worker_check("kick")
             if err:
-                await message.channel.send(err)
+                await message.channel.send(embed=err)
                 return
             parts = message.content.split()
             if len(parts) < 2:
@@ -452,21 +453,21 @@ async def on_message(message):
         if content.startswith("!fans"):
             err = worker_check("fans")
             if err:
-                await message.channel.send(err)
+                await message.channel.send(embed=err)
                 return
             await message.channel.send(embed=MW_WARNING_embed("FANS", "Verify/add fans"), view=MWExecuteView("FANS"))
             return
         if content.startswith("!medal"):
             err = worker_check("medal")
             if err:
-                await message.channel.send(err)
+                await message.channel.send(embed=err)
                 return
             await message.channel.send(embed=MW_WARNING_embed("MEDAL", "Equip medal/badge"), view=MedalBadgeSelect())
             return
         if content.startswith("!points"):
             err = worker_check("points")
             if err:
-                await message.channel.send(err)
+                await message.channel.send(embed=err)
                 return
             await message.channel.send(embed=MW_WARNING_embed("POINTS", "Add points"), view=MWExecuteView("POINTS"))
             return
@@ -481,7 +482,7 @@ async def on_message(message):
         if content.startswith("!season"):
             err = worker_check("season")
             if err:
-                await message.channel.send(err)
+                await message.channel.send(embed=err)
                 return
             await message.channel.send(embed=MW_WARNING_embed("SEASON", "Add Season Pass XP — 2 phase"), view=MWExecuteView("SEASON"))
             return
@@ -520,7 +521,7 @@ async def on_message(message):
             return
         err = worker_check("kick")
         if err:
-            await message.channel.send(err)
+            await message.channel.send(embed=err)
             return
         parts = message.content.split()
         if len(parts) < 2:
@@ -584,7 +585,7 @@ async def on_message(message):
             return
         err = worker_check("kick")
         if err:
-            await message.channel.send(err)
+            await message.channel.send(embed=err)
             return
         parts = message.content.split()
         if len(parts) < 2:
@@ -601,7 +602,7 @@ async def on_message(message):
     if content.startswith("!fans"):
         err = worker_check("fans")
         if err:
-            await message.channel.send(err)
+            await message.channel.send(embed=err)
             return
         await message.channel.send(embed=MW_WARNING_embed("FANS", "Verify/add fans for Mini World account"), view=MWExecuteView("FANS"))
         return
@@ -609,7 +610,7 @@ async def on_message(message):
     if content.startswith("!medal"):
         err = worker_check("medal")
         if err:
-            await message.channel.send(err)
+            await message.channel.send(embed=err)
             return
         await message.channel.send(embed=MW_WARNING_embed("MEDAL", "Equip medal/badge for Mini World account"), view=MedalBadgeSelect())
         return
@@ -617,7 +618,7 @@ async def on_message(message):
     if content.startswith("!points"):
         err = worker_check("points")
         if err:
-            await message.channel.send(err)
+            await message.channel.send(embed=err)
             return
         await message.channel.send(embed=MW_WARNING_embed("POINTS", "Add points to Mini World account"), view=MWExecuteView("POINTS"))
         return
@@ -625,7 +626,7 @@ async def on_message(message):
     if content.startswith("!rename"):
         err = worker_check("rename")
         if err:
-            await message.channel.send(err)
+            await message.channel.send(embed=err)
             return
         parts = message.content.split()
         if len(parts) < 2:
@@ -638,7 +639,7 @@ async def on_message(message):
     if content.startswith("!season"):
         err = worker_check("season")
         if err:
-            await message.channel.send(err)
+            await message.channel.send(embed=err)
             return
         await message.channel.send(embed=MW_WARNING_embed("SEASON", "Add Season Pass XP — 2 phase auto"), view=MWExecuteView("SEASON"))
         return
