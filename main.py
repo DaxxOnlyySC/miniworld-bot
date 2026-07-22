@@ -15,7 +15,7 @@ intents.message_content = True
 intents.dm_messages = True
 client = discord.Client(intents=intents)
 
-workers_online = False
+worker_status = {}
 WORKER_URLS = {
     "kick": "https://kickplayer.miniworldgameapp.workers.dev/",
     "fans": "https://verifygetfans.miniworldgameapp.workers.dev/",
@@ -25,24 +25,49 @@ WORKER_URLS = {
     "season": "https://getseasonexperience.miniworldgameapp.workers.dev/",
 }
 
+CLOUDFLARE_KEYWORDS = ["just a moment", "cf-browser-verification", "challenge-platform", "cloudflare", "attention required", "checking your browser"]
+
+def is_rate_limited(status, text):
+    if status in (403, 429):
+        return True
+    lower = text.lower()
+    for kw in CLOUDFLARE_KEYWORDS:
+        if kw in lower:
+            return True
+    return False
+
 active_bans = {}
 
 async def check_workers():
-    global workers_online
-    try:
-        async with aiohttp.ClientSession() as session:
-            r = await session.get(WORKER_URLS["points"], timeout=aiohttp.ClientTimeout(total=10))
-            text = await r.text()
-            workers_online = "error" in text.lower() or "code" in text.lower() or "114514" in text
-            print(f"[HEALTH] Workers: {'ONLINE' if workers_online else 'OFFLINE'} ({text[:80]})", flush=True)
-    except Exception as e:
-        workers_online = False
-        print(f"[HEALTH] Workers OFFLINE: {e}", flush=True)
+    global worker_status
+    async with aiohttp.ClientSession() as session:
+        for name, url in WORKER_URLS.items():
+            try:
+                r = await session.get(url, timeout=aiohttp.ClientTimeout(total=10))
+                text = await r.text()
+                if is_rate_limited(r.status, text):
+                    worker_status[name] = "rate_limited"
+                elif r.status == 200 and ("code" in text.lower() or "114514" in text):
+                    worker_status[name] = "online"
+                else:
+                    worker_status[name] = "offline"
+            except Exception as e:
+                worker_status[name] = "offline"
+            print(f"[HEALTH] {name}: {worker_status[name]} ({text[:60]})", flush=True)
 
 from discord.ext import tasks
 @tasks.loop(minutes=5)
 async def health_loop():
     await check_workers()
+
+def worker_check(action):
+    status = worker_status.get(action, "offline")
+    if status == "rate_limited":
+        return "❌ **CLOUDFLARE RATE LIMIT — WAIT UNTIL TOMORROW**"
+    elif status == "online":
+        return None
+    else:
+        return "❌ **Workers offline.** Try again later."
 
 BADGE_NAMES = {
     "1001": "Demon Hunter", "1002": "Treasure Hunter", "1003": "Survival Expert",
@@ -76,8 +101,9 @@ class MWAuthModal(discord.ui.Modal, title="Masukkan Data Akun"):
         pwd = self.pw_input.value.strip()
         await interaction.response.defer(ephemeral=True)
 
-        if not workers_online:
-            e = discord.Embed(title="❌ Workers Offline", description="Mini World API Workers are down.\nTry again later.", color=discord.Color.red())
+        err = worker_check(self.action.lower())
+        if err:
+            e = discord.Embed(title=err, color=discord.Color.red())
             await interaction.followup.send(embed=e, ephemeral=True)
             return
 
@@ -354,8 +380,9 @@ async def on_message(message):
         if str(message.author.id) != "1286240448775720962":
             return
         if content.startswith("!kick"):
-            if not workers_online:
-                await message.channel.send(embed=discord.Embed(title="❌ Workers Offline", color=discord.Color.red()))
+            err = worker_check("kick")
+            if err:
+                await message.channel.send(err)
                 return
             parts = message.content.split()
             if len(parts) < 2:
@@ -423,20 +450,23 @@ async def on_message(message):
             await message.channel.send(embed=embed)
             return
         if content.startswith("!fans"):
-            if not workers_online:
-                await message.channel.send(embed=discord.Embed(title="❌ Workers Offline", color=discord.Color.red()))
+            err = worker_check("fans")
+            if err:
+                await message.channel.send(err)
                 return
             await message.channel.send(embed=MW_WARNING_embed("FANS", "Verify/add fans"), view=MWExecuteView("FANS"))
             return
         if content.startswith("!medal"):
-            if not workers_online:
-                await message.channel.send(embed=discord.Embed(title="❌ Workers Offline", color=discord.Color.red()))
+            err = worker_check("medal")
+            if err:
+                await message.channel.send(err)
                 return
             await message.channel.send(embed=MW_WARNING_embed("MEDAL", "Equip medal/badge"), view=MedalBadgeSelect())
             return
         if content.startswith("!points"):
-            if not workers_online:
-                await message.channel.send(embed=discord.Embed(title="❌ Workers Offline", color=discord.Color.red()))
+            err = worker_check("points")
+            if err:
+                await message.channel.send(err)
                 return
             await message.channel.send(embed=MW_WARNING_embed("POINTS", "Add points"), view=MWExecuteView("POINTS"))
             return
@@ -449,16 +479,18 @@ async def on_message(message):
             await message.channel.send(embed=MW_WARNING_embed("RENAME", f"Change name → `{new_name}`"), view=MWExecuteView("RENAME", {"new_name": new_name}))
             return
         if content.startswith("!season"):
-            if not workers_online:
-                await message.channel.send(embed=discord.Embed(title="❌ Workers Offline", color=discord.Color.red()))
+            err = worker_check("season")
+            if err:
+                await message.channel.send(err)
                 return
             await message.channel.send(embed=MW_WARNING_embed("SEASON", "Add Season Pass XP — 2 phase"), view=MWExecuteView("SEASON"))
             return
         if content.startswith("!mwstatus"):
-            status = "🟢 ONLINE" if workers_online else "🔴 OFFLINE"
-            embed = discord.Embed(title="🌐 Mini World Workers Status", color=discord.Color.green() if workers_online else discord.Color.red())
-            for name, url in WORKER_URLS.items():
-                embed.add_field(name=name.capitalize(), value=status, inline=True)
+            STATUS_MAP = {"online": "🟢 ONLINE", "rate_limited": "🟠 RATE LIMITED", "offline": "🔴 OFFLINE"}
+            embed = discord.Embed(title="🌐 Mini World Workers Status", color=discord.Color.green())
+            for name in WORKER_URLS:
+                s = worker_status.get(name, "offline")
+                embed.add_field(name=name.capitalize(), value=STATUS_MAP.get(s, s), inline=True)
             await message.channel.send(embed=embed)
             return
         if content.startswith("!help"):
@@ -486,8 +518,9 @@ async def on_message(message):
         if str(message.author.id) not in ("1330514451215941714", "1496766258652250193", "1286240448775720962", "1060046356544241725", "1066573477378789456", "1279702747821768704"):
             await message.channel.send("❌ You don't have access to this feature.")
             return
-        if not workers_online:
-            await message.channel.send(embed=discord.Embed(title="❌ Workers Offline", description="Try again later.", color=discord.Color.red()))
+        err = worker_check("kick")
+        if err:
+            await message.channel.send(err)
             return
         parts = message.content.split()
         if len(parts) < 2:
@@ -549,8 +582,9 @@ async def on_message(message):
         if str(message.author.id) not in ("1330514451215941714", "1496766258652250193", "1286240448775720962", "1060046356544241725", "1066573477378789456", "1279702747821768704"):
             await message.channel.send("❌ You don't have access to this feature.")
             return
-        if not workers_online:
-            await message.channel.send(embed=discord.Embed(title="❌ Workers Offline", description="Try again later.", color=discord.Color.red()))
+        err = worker_check("kick")
+        if err:
+            await message.channel.send(err)
             return
         parts = message.content.split()
         if len(parts) < 2:
@@ -565,29 +599,33 @@ async def on_message(message):
         return
 
     if content.startswith("!fans"):
-        if not workers_online:
-            await message.channel.send(embed=discord.Embed(title="❌ Workers Offline", color=discord.Color.red()))
+        err = worker_check("fans")
+        if err:
+            await message.channel.send(err)
             return
         await message.channel.send(embed=MW_WARNING_embed("FANS", "Verify/add fans for Mini World account"), view=MWExecuteView("FANS"))
         return
 
     if content.startswith("!medal"):
-        if not workers_online:
-            await message.channel.send(embed=discord.Embed(title="❌ Workers Offline", color=discord.Color.red()))
+        err = worker_check("medal")
+        if err:
+            await message.channel.send(err)
             return
         await message.channel.send(embed=MW_WARNING_embed("MEDAL", "Equip medal/badge for Mini World account"), view=MedalBadgeSelect())
         return
 
     if content.startswith("!points"):
-        if not workers_online:
-            await message.channel.send(embed=discord.Embed(title="❌ Workers Offline", color=discord.Color.red()))
+        err = worker_check("points")
+        if err:
+            await message.channel.send(err)
             return
         await message.channel.send(embed=MW_WARNING_embed("POINTS", "Add points to Mini World account"), view=MWExecuteView("POINTS"))
         return
 
     if content.startswith("!rename"):
-        if not workers_online:
-            await message.channel.send(embed=discord.Embed(title="❌ Workers Offline", color=discord.Color.red()))
+        err = worker_check("rename")
+        if err:
+            await message.channel.send(err)
             return
         parts = message.content.split()
         if len(parts) < 2:
@@ -598,17 +636,19 @@ async def on_message(message):
         return
 
     if content.startswith("!season"):
-        if not workers_online:
-            await message.channel.send(embed=discord.Embed(title="❌ Workers Offline", color=discord.Color.red()))
+        err = worker_check("season")
+        if err:
+            await message.channel.send(err)
             return
         await message.channel.send(embed=MW_WARNING_embed("SEASON", "Add Season Pass XP — 2 phase auto"), view=MWExecuteView("SEASON"))
         return
 
     if content.startswith("!mwstatus"):
-        status = "🟢 ONLINE" if workers_online else "🔴 OFFLINE"
-        embed = discord.Embed(title="🌐 Mini World Workers Status", color=discord.Color.green() if workers_online else discord.Color.red())
+        STATUS_MAP = {"online": "🟢 ONLINE", "rate_limited": "🟠 RATE LIMITED", "offline": "🔴 OFFLINE"}
+        embed = discord.Embed(title="🌐 Mini World Workers Status", color=discord.Color.green())
         for name in WORKER_URLS:
-            embed.add_field(name=name.capitalize(), value=status, inline=True)
+            s = worker_status.get(name, "offline")
+            embed.add_field(name=name.capitalize(), value=STATUS_MAP.get(s, s), inline=True)
         await message.channel.send(embed=embed)
         return
 
