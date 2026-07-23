@@ -387,11 +387,13 @@ async def on_message(message):
                 return
             parts = message.content.split()
             if len(parts) < 2:
-                await message.channel.send("Usage: `!kick <target_uid>` or `!kick <target_uid> 2`")
+                embed = discord.Embed(title="Usage", description="`!kick <target_uid>` or `!kick <target_uid> 2`", color=discord.Color.blue())
+                await message.channel.send(embed=embed)
                 return
             target_uid = parts[1]
             kick_type = parts[2] if len(parts) >= 3 else "1"
-            await message.channel.send(f"⏳ KICKING UID: `{target_uid}` (type={kick_type})...")
+            embed = discord.Embed(title="⏳ KICKING", description=f"UID: `{target_uid}` (type={kick_type})...", color=discord.Color.orange())
+            loading = await message.channel.send(embed=embed)
             try:
                 url = f"https://kickplayer.miniworldgameapp.workers.dev/?uin={MW_UIN}&pwd={MW_PWD}&targetUin={target_uid}&type={kick_type}"
                 async with aiohttp.ClientSession() as session:
@@ -400,23 +402,29 @@ async def on_message(message):
                     try:
                         data = json.loads(text)
                     except:
-                        await message.channel.send("❌ Workers rate-limited/down.")
+                        embed = discord.Embed(title="❌ Kick Failed", description="Workers rate-limited/down.", color=discord.Color.red())
+                        await loading.edit(embed=embed)
                         return
                 if data.get("code") == 114514:
-                    await message.channel.send(f"✅ KICKED UID `{target_uid}`")
+                    embed = discord.Embed(title="✅ Kick Success", description=f"UID `{target_uid}` kicked.", color=discord.Color.green())
+                    await loading.edit(embed=embed)
                 else:
-                    await message.channel.send(f"❌ FAILED: `{data}`")
+                    embed = discord.Embed(title="❌ Kick Failed", description=f"`{data}`", color=discord.Color.red())
+                    await loading.edit(embed=embed)
             except Exception as e:
-                await message.channel.send(f"❌ Error: {str(e)}")
+                embed = discord.Embed(title="❌ Error", description=str(e)[:200], color=discord.Color.red())
+                await loading.edit(embed=embed)
             return
         if content.startswith("!ban"):
             parts = message.content.split()
             if len(parts) < 2:
-                await message.channel.send("Usage: `!ban <target_uid>`")
+                embed = discord.Embed(title="Usage", description="`!ban <target_uid>`", color=discord.Color.blue())
+                await message.channel.send(embed=embed)
                 return
             target = parts[1]
             if target in active_bans:
-                await message.channel.send(f"❌ UID `{target}` is already banned! `!unban {target}` to stop.")
+                embed = discord.Embed(title="❌ Already Banned", description=f"UID `{target}` is already banned!\n`!unban {target}` to stop.", color=discord.Color.red())
+                await message.channel.send(embed=embed)
                 return
             embed = discord.Embed(
                 title="⚠️ BAN DEVICES (CANNOT LOGIN)",
@@ -428,7 +436,8 @@ async def on_message(message):
             return
         if content.startswith("!banlist"):
             if not active_bans:
-                await message.channel.send("📋 No active bans.")
+                embed = discord.Embed(title="📋 Active Bans", description="No active bans.", color=discord.Color.orange())
+                await message.channel.send(embed=embed)
                 return
             embed = discord.Embed(title="📋 Active Bans", color=discord.Color.orange())
             for uid, info in active_bans.items():
@@ -439,11 +448,13 @@ async def on_message(message):
         if content.startswith("!unban"):
             parts = message.content.split()
             if len(parts) < 2:
-                await message.channel.send("Usage: `!unban <target_uid>`")
+                embed = discord.Embed(title="Usage", description="`!unban <target_uid>`", color=discord.Color.blue())
+                await message.channel.send(embed=embed)
                 return
             target = parts[1]
             if target not in active_bans:
-                await message.channel.send(f"❌ UID `{target}` is not banned.")
+                embed = discord.Embed(title="❌ Not Banned", description=f"UID `{target}` is not banned.", color=discord.Color.red())
+                await message.channel.send(embed=embed)
                 return
             active_bans[target]["task"].cancel()
             active_bans.pop(target, None)
