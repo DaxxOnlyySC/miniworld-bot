@@ -698,68 +698,60 @@ async def on_message(message):
         return
 
     if content.startswith("!buka_room"):
-        err = worker_check("buka_room")
-        if err:
-            await message.channel.send(embed=err)
-            return
-        parts = message.content.split()
-        room_name = parts[1] if len(parts) >= 2 else "Room"
-        max_player = parts[2] if len(parts) >= 3 else "10"
-        password = parts[3] if len(parts) >= 4 else ""
-        game_mode = parts[4] if len(parts) >= 5 else "0"
-        
-        loading = await message.channel.send(f"⏳ **Membuka room:** `{room_name}` ...")
         try:
+            parts = message.content.split()
+            room_name = parts[1] if len(parts) >= 2 else "Room"
+            max_player = parts[2] if len(parts) >= 3 else "10"
+            password = parts[3] if len(parts) >= 4 else ""
+            game_mode = parts[4] if len(parts) >= 5 else "0"
+            
+            loading = await message.channel.send(f"⏳ **Membuka room:** `{room_name}` ...")
             async with aiohttp.ClientSession() as session:
                 params = {"name": room_name, "max": max_player, "mode": game_mode}
                 if password:
                     params["pass"] = password
-                url = f"https://miniworld-api.daxtercarl1202.workers.dev/buka_room"
-                r = await session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=15))
-                try:
-                    data = await r.json()
-                except:
-                    embed = discord.Embed(title="❌ Buka Room Failed", description="Workers rate-limited/down.", color=discord.Color.red())
-                    await loading.edit(content="", embed=embed)
-                    return
+                r = await session.get("https://miniworld-api.daxtercarl1202.workers.dev/buka_room", params=params, timeout=aiohttp.ClientTimeout(total=15))
+                data = await r.json()
             if data.get("status") == "success":
                 room = data.get("room", {})
                 embed = discord.Embed(title="✅ Room Dibuka!", color=discord.Color.green())
                 embed.add_field(name="Nama", value=room.get("name", room_name), inline=True)
-                embed.add_field(name="Max Player", value=room.get("maxPlayer", max_player), inline=True)
+                embed.add_field(name="Max Player", value=str(room.get("maxPlayer", max_player)), inline=True)
                 embed.add_field(name="Tipe", value=room.get("type", "Public"), inline=True)
-                embed.add_field(name="Mode", value=room.get("mode", game_mode), inline=True)
+                embed.add_field(name="Mode", value=str(room.get("mode", game_mode)), inline=True)
                 await loading.edit(content="", embed=embed)
             else:
                 embed = discord.Embed(title="❌ Buka Room Failed", description=f"`{data}`", color=discord.Color.red())
                 await loading.edit(content="", embed=embed)
         except Exception as e:
-            await loading.edit(content=f"❌ Error: {str(e)[:200]}", embed=None)
+            print(f"[BUKA_ROOM ERROR] {e}", flush=True)
+            try:
+                await loading.edit(content=f"❌ Error: {str(e)[:200]}", embed=None)
+            except:
+                await message.channel.send(f"❌ Error: {str(e)[:200]}")
         return
 
     if content.startswith("!player"):
-        parts = message.content.split()
-        if len(parts) < 2:
-            await message.channel.send("Usage: `!player <uin>`")
-            return
-        uin = parts[1]
-        loading = await message.channel.send(f"⏳ **Mencari player:** `{uin}` ...")
         try:
+            parts = message.content.split()
+            if len(parts) < 2:
+                await message.channel.send("Usage: `!player <uin>`")
+                return
+            uin = parts[1]
+            loading = await message.channel.send(f"⏳ **Mencari player:** `{uin}` ...")
             async with aiohttp.ClientSession() as session:
-                url = f"https://miniworld-api.daxtercarl1202.workers.dev/player"
-                r = await session.get(url, params={"uin": uin}, timeout=aiohttp.ClientTimeout(total=15))
-                try:
-                    data = await r.json()
-                except:
-                    embed = discord.Embed(title="❌ Player Not Found", description="Workers rate-limited/down.", color=discord.Color.red())
-                    await loading.edit(content="", embed=embed)
-                    return
+                r = await session.get("https://miniworld-api.daxtercarl1202.workers.dev/player", params={"uin": uin}, timeout=aiohttp.ClientTimeout(total=15))
+                data = await r.json()
             embed = discord.Embed(title="👤 Player Info", color=discord.Color.blue())
             embed.add_field(name="UIN", value=f"`{data.get('uin', uin)}`", inline=True)
             embed.add_field(name="Status", value=data.get("status", "N/A"), inline=True)
             await loading.edit(content="", embed=embed)
         except Exception as e:
-            await loading.edit(content=f"❌ Error: {str(e)[:200]}", embed=None)
+            print(f"[PLAYER ERROR] {e}", flush=True)
+            try:
+                await loading.edit(content=f"❌ Error: {str(e)[:200]}", embed=None)
+            except:
+                await message.channel.send(f"❌ Error: {str(e)[:200]}")
         return
 
     if content.startswith("!servers"):
