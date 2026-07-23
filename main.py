@@ -255,7 +255,7 @@ class MedalBadgeSelect(discord.ui.View):
 
     @discord.ui.select(
         placeholder="Select Badge/Medal (multiple OK)",
-        min_values=1, max_values=5,
+        min_values=1, max_values=25,
         options=[discord.SelectOption(label=name, value=badge_id) for badge_id, name in BADGE_NAMES.items()]
     )
     async def badge_select(self, interaction: discord.Interaction, select: discord.ui.Select):
