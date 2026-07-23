@@ -688,7 +688,7 @@ async def on_message(message):
     if content.startswith("!owner"):
         embed = discord.Embed(title="👑 OWNER BOT", color=discord.Color.gold())
         embed.add_field(name="Owner", value="Daxterrr (`zecvxc_`)", inline=False)
-        embed.add_field(name="Penolong Pembuat Bot", value="Khairan (`khaigntg`)\nKall (`kallcigma`)", inline=False)
+        embed.add_field(name="Bot Co-Creator", value="Khairan (`khaigntg`)\nKall (`kallcigma`)", inline=False)
         await message.channel.send(embed=embed)
         return
 
