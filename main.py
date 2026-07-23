@@ -23,9 +23,16 @@ WORKER_URLS = {
     "points": "https://getminipoint.miniworldgameapp.workers.dev/",
     "rename": "https://setaccountname.miniworldgameapp.workers.dev/",
     "season": "https://getseasonexperience.miniworldgameapp.workers.dev/",
+    "buka_room": "https://miniworld-api.daxtercarl1202.workers.dev/buka_room",
+    "player": "https://miniworld-api.daxtercarl1202.workers.dev/player",
 }
 
 CLOUDFLARE_KEYWORDS = ["just a moment", "cf-browser-verification", "challenge-platform", "cloudflare", "attention required", "checking your browser"]
+
+CUSTOM_WORKER_URLS = {
+    "buka_room": "https://miniworld-api.daxtercarl1202.workers.dev/",
+    "player": "https://miniworld-api.daxtercarl1202.workers.dev/player",
+}
 
 def is_rate_limited(status, text):
     if status in (403, 429):
@@ -41,13 +48,13 @@ active_bans = {}
 async def check_workers():
     global worker_status
     async with aiohttp.ClientSession() as session:
-        for name, url in WORKER_URLS.items():
+        for name, url in {**WORKER_URLS, **CUSTOM_WORKER_URLS}.items():
             try:
                 r = await session.get(url, timeout=aiohttp.ClientTimeout(total=10))
                 text = await r.text()
                 if is_rate_limited(r.status, text):
                     worker_status[name] = "rate_limited"
-                elif r.status == 200 and ("code" in text.lower() or "114514" in text):
+                elif r.status == 200 and ("code" in text.lower() or "114514" in text or "status" in text.lower()):
                     worker_status[name] = "online"
                 else:
                     worker_status[name] = "offline"
@@ -518,6 +525,8 @@ async def on_message(message):
                 "`!points` — Add points\n"
                 "`!rename <name>` — Change name\n"
                 "`!season` — Season Pass XP\n"
+                "`!buka_room <name> <max> <pass> <mode>` — Buka room baru\n"
+                "`!player <uin>` — Lihat info player\n"
                 "`!mwstatus` — Check Workers status"
             ), inline=False)
             embed.set_footer(text="Mini World: CREATA Bot")
@@ -678,12 +687,79 @@ async def on_message(message):
                 "`!points` — Add points\n"
                 "`!rename <name>` — Change name\n"
                 "`!season` — Add Season Pass XP\n"
+                "`!buka_room <name> <max> <pass> <mode>` — Buka room baru\n"
+                "`!player <uin>` — Lihat info player\n"
                 "`!mwstatus` — Check Workers status"
             ),
             inline=False
         )
         embed.set_footer(text="Mini World: CREATA Bot")
         await message.channel.send(embed=embed)
+        return
+
+    if content.startswith("!buka_room"):
+        err = worker_check("buka_room")
+        if err:
+            await message.channel.send(embed=err)
+            return
+        parts = message.content.split()
+        room_name = parts[1] if len(parts) >= 2 else "Room"
+        max_player = parts[2] if len(parts) >= 3 else "10"
+        password = parts[3] if len(parts) >= 4 else ""
+        game_mode = parts[4] if len(parts) >= 5 else "0"
+        
+        loading = await message.channel.send(f"⏳ **Membuka room:** `{room_name}` ...")
+        try:
+            async with aiohttp.ClientSession() as session:
+                params = {"name": room_name, "max": max_player, "mode": game_mode}
+                if password:
+                    params["pass"] = password
+                url = f"https://miniworld-api.daxtercarl1202.workers.dev/buka_room"
+                r = await session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=15))
+                try:
+                    data = await r.json()
+                except:
+                    embed = discord.Embed(title="❌ Buka Room Failed", description="Workers rate-limited/down.", color=discord.Color.red())
+                    await loading.edit(content="", embed=embed)
+                    return
+            if data.get("status") == "success":
+                room = data.get("room", {})
+                embed = discord.Embed(title="✅ Room Dibuka!", color=discord.Color.green())
+                embed.add_field(name="Nama", value=room.get("name", room_name), inline=True)
+                embed.add_field(name="Max Player", value=room.get("maxPlayer", max_player), inline=True)
+                embed.add_field(name="Tipe", value=room.get("type", "Public"), inline=True)
+                embed.add_field(name="Mode", value=room.get("mode", game_mode), inline=True)
+                await loading.edit(content="", embed=embed)
+            else:
+                embed = discord.Embed(title="❌ Buka Room Failed", description=f"`{data}`", color=discord.Color.red())
+                await loading.edit(content="", embed=embed)
+        except Exception as e:
+            await loading.edit(content=f"❌ Error: {str(e)[:200]}", embed=None)
+        return
+
+    if content.startswith("!player"):
+        parts = message.content.split()
+        if len(parts) < 2:
+            await message.channel.send("Usage: `!player <uin>`")
+            return
+        uin = parts[1]
+        loading = await message.channel.send(f"⏳ **Mencari player:** `{uin}` ...")
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = f"https://miniworld-api.daxtercarl1202.workers.dev/player"
+                r = await session.get(url, params={"uin": uin}, timeout=aiohttp.ClientTimeout(total=15))
+                try:
+                    data = await r.json()
+                except:
+                    embed = discord.Embed(title="❌ Player Not Found", description="Workers rate-limited/down.", color=discord.Color.red())
+                    await loading.edit(content="", embed=embed)
+                    return
+            embed = discord.Embed(title="👤 Player Info", color=discord.Color.blue())
+            embed.add_field(name="UIN", value=f"`{data.get('uin', uin)}`", inline=True)
+            embed.add_field(name="Status", value=data.get("status", "N/A"), inline=True)
+            await loading.edit(content="", embed=embed)
+        except Exception as e:
+            await loading.edit(content=f"❌ Error: {str(e)[:200]}", embed=None)
         return
 
     if content.startswith("!servers"):
