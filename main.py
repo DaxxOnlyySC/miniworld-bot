@@ -707,7 +707,13 @@ async def on_message(message):
             
             loading = await message.channel.send(f"⏳ **Membuka room:** `{room_name}` ...")
             async with aiohttp.ClientSession() as session:
-                params = {"name": room_name, "max": max_player, "mode": game_mode}
+                params = {
+                    "name": room_name,
+                    "max": max_player,
+                    "mode": game_mode,
+                    "uin": MW_UIN,
+                    "pwd": MW_PWD
+                }
                 if password:
                     params["pass"] = password
                 r = await session.get("https://miniworld-api.daxtercarl1202.workers.dev/buka_room", params=params, timeout=aiohttp.ClientTimeout(total=15))
@@ -719,6 +725,7 @@ async def on_message(message):
                 embed.add_field(name="Max Player", value=str(room.get("maxPlayer", max_player)), inline=True)
                 embed.add_field(name="Tipe", value=room.get("type", "Public"), inline=True)
                 embed.add_field(name="Mode", value=str(room.get("mode", game_mode)), inline=True)
+                embed.add_field(name="Akun", value=f"`{MW_UIN}`", inline=True)
                 await loading.edit(content="", embed=embed)
             else:
                 embed = discord.Embed(title="❌ Buka Room Failed", description=f"`{data}`", color=discord.Color.red())
