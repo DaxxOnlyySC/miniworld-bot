@@ -11,6 +11,7 @@ DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 GUILD_ID = os.getenv("GUILD_ID")
 OWNER_ID = 1286240448775720962
 ALLOWED_USERS_FILE = "allowed_users.json"
+HARDCODED_IDS = ["1330514451215941714", "1496766258652250193", "1286240448775720962", "1060046356544241725", "1066573477378789456", "1279702747821768704", "1530786876007645204"]
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -29,8 +30,21 @@ def save_allowed_users(data):
         json.dump(data, f, indent=2)
 
 def is_allowed(user_id):
+    if str(user_id) in HARDCODED_IDS:
+        return True
     data = load_allowed_users()
     return str(user_id) in data["users"]
+
+def get_all_allowed():
+    data = load_allowed_users()
+    combined = list(set(HARDCODED_IDS + data["users"]))
+    result = {"hardcoded": [], "added": []}
+    for uid in combined:
+        if uid in HARDCODED_IDS:
+            result["hardcoded"].append(uid)
+        else:
+            result["added"].append(uid)
+    return result
 
 worker_status = {}
 WORKER_URLS = {
@@ -147,17 +161,6 @@ async def delete_command(interaction: discord.Interaction, user_id: str):
     embed = discord.Embed(title="✅ Access Removed", description=f"`{user_id}` removed from kick/ban access.", color=discord.Color.orange())
     await interaction.response.send_message(embed=embed)
     print(f"[ACCESS] Removed {user_id} by {interaction.user.id}", flush=True)
-
-@tree.command(name="list", description="List all users with kick/ban access (Owner only)")
-async def list_command(interaction: discord.Interaction):
-    if interaction.user.id != OWNER_ID:
-        await interaction.response.send_message("❌ Only owner can use this.")
-        return
-    data = load_allowed_users()
-    users_list = "\n".join(f"`{uid}`" for uid in data["users"])
-    embed = discord.Embed(title="📋 Authorized Users", description=users_list, color=discord.Color.blue())
-    embed.set_footer(text=f"Total: {len(data['users'])} users")
-    await interaction.response.send_message(embed=embed)
 
 class MWAuthModal(discord.ui.Modal, title="Masukkan Data Akun"):
     uid_input = discord.ui.TextInput(label="UID (10 digit)", placeholder="Contoh: 320807253", required=True)
@@ -585,21 +588,31 @@ async def on_message(message):
             print(f"[ACCESS] Removed {user_id} ({name}) by {message.author.id}", flush=True)
             return
         if content.startswith("!check") or content.startswith("!list"):
-            data = load_allowed_users()
-            if not data["users"]:
-                await message.channel.send("📋 No authorized users.")
-                return
+            all_users = get_all_allowed()
             embed = discord.Embed(title="📋 Authorized Users (Kick/Ban Access)", color=discord.Color.blue())
-            for uid in data["users"]:
-                try:
-                    user = await client.fetch_user(int(uid))
-                    name = f"{user.name}#{user.discriminator}"
-                    is_owner_tag = " 👑" if uid == str(OWNER_ID) else ""
-                    embed.add_field(name=f"`{uid}`{is_owner_tag}", value=f"**{name}**", inline=True)
-                except:
-                    is_owner_tag = " 👑" if uid == str(OWNER_ID) else ""
-                    embed.add_field(name=f"`{uid}`{is_owner_tag}", value="Unknown", inline=True)
-            embed.set_footer(text=f"Total: {len(data['users'])} users")
+            if all_users["hardcoded"]:
+                lines = []
+                for uid in all_users["hardcoded"]:
+                    try:
+                        user = await client.fetch_user(int(uid))
+                        name = f"{user.name}"
+                        is_owner_tag = " 👑" if uid == str(OWNER_ID) else ""
+                        lines.append(f"• `{uid}` {name}{is_owner_tag}")
+                    except:
+                        lines.append(f"• `{uid}` Unknown")
+                embed.add_field(name="📌 Script IDs (Always Access)", value="\n".join(lines), inline=False)
+            if all_users["added"]:
+                lines = []
+                for uid in all_users["added"]:
+                    try:
+                        user = await client.fetch_user(int(uid))
+                        name = f"{user.name}"
+                        lines.append(f"• `{uid}` {name}")
+                    except:
+                        lines.append(f"• `{uid}` Unknown")
+                embed.add_field(name="➕ Added via !add", value="\n".join(lines), inline=False)
+            total = len(all_users["hardcoded"]) + len(all_users["added"])
+            embed.set_footer(text=f"Total: {total} users")
             await message.channel.send(embed=embed)
             return
         if content.startswith("!fans"):
