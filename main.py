@@ -54,6 +54,7 @@ WORKER_URLS = {
     "season": "https://getseasonexperience.miniworldgameapp.workers.dev/",
     "buka_room": "https://miniworld-api.daxtercarl1202.workers.dev/buka_room",
     "player": "https://miniworld-api.daxtercarl1202.workers.dev/player",
+    "openroom": "https://proxy-darkn2ss.darknessweb.workers.dev/api/openroom",
 }
 
 CLOUDFLARE_KEYWORDS = ["just a moment", "cf-browser-verification", "challenge-platform", "cloudflare", "attention required", "checking your browser"]
@@ -640,6 +641,7 @@ async def on_message(message):
                 "`!rename <name>` — Change name\n"
                 "`!season` — Season Pass XP\n"
                 "`!buka_room <name> <max> <pass> <mode>` — Buka room baru\n"
+                "`!openroom <map_id> [name] [max] [pass]` — Open room with map\n"
                 "`!player <uin>` — Lihat info player\n"
                 "`!mwstatus` — Check Workers status\n\n"
                 "**Owner Only:**\n"
@@ -806,6 +808,7 @@ async def on_message(message):
                 "`!rename <name>` — Change name\n"
                 "`!season` — Add Season Pass XP\n"
                 "`!buka_room <name> <max> <pass> <mode>` — Buka room baru\n"
+                "`!openroom <map_id> [name] [max] [pass]` — Open room with map\n"
                 "`!player <uin>` — Lihat info player\n"
                 "`!mwstatus` — Check Workers status\n\n"
                 "**Owner Only (DM):**\n"
@@ -859,6 +862,100 @@ async def on_message(message):
             except:
                 await message.channel.send(f"❌ Error: {str(e)[:200]}")
         return
+
+    if content.startswith("!openroom"):
+        if not is_allowed(message.author.id):
+            await message.channel.send("❌ You don't have access to this feature.")
+            return
+        try:
+            parts = message.content.split(maxsplit=1)
+            if len(parts) < 2:
+                embed = discord.Embed(title="Usage", description="`!openroom <map_id> [room_name] [max_count] [password]`", color=discord.Color.blue())
+                embed.add_field(name="Example", value="`!openroom 37f061acd1348dd71c27ba73aa7e9e01 MyRoom 10 pass123`", inline=False)
+                await message.channel.send(embed=embed)
+                return
+            args = parts[1].split()
+            map_id = args[0]
+            room_name = args[1] if len(args) >= 2 else "DarkN2ss Room"
+            max_count = args[2] if len(args) >= 3 else "10"
+            passwd = args[3] if len(args) >= 4 else ""
+            
+            loading = await message.channel.send(f"⏳ **Opening room:** `{room_name}` ...\nMap: `{map_id}`")
+            async with aiohttp.ClientSession() as session:
+                params = {
+                    "map_id": map_id,
+                    "map_name": room_name,
+                    "room_name": room_name,
+                    "max_count": max_count,
+                    "uin": "1320454366",
+                    "uname": "%23B%23DarkN2ss.",
+                }
+                if passwd:
+                    params["passwd"] = passwd
+                r = await session.get("https://proxy-darkn2ss.darknessweb.workers.dev/api/openroom", params=params, timeout=aiohttp.ClientTimeout(total=15))
+                data = await r.json()
+            if data.get("code") == 0 or data.get("status") == "success":
+                embed = discord.Embed(title="✅ Room Opened!", color=discord.Color.green())
+                embed.add_field(name="Room Name", value=f"`{room_name}`", inline=True)
+                embed.add_field(name="Map ID", value=f"`{map_id[:20]}...`", inline=True)
+                embed.add_field(name="Max Players", value=f"`{max_count}`", inline=True)
+                embed.add_field(name="Response", value=f"`{json.dumps(data)[:500]}`", inline=False)
+                await loading.edit(content="", embed=embed)
+            else:
+                embed = discord.Embed(title="❌ Open Room Failed", description=f"```json\n{json.dumps(data, indent=2)[:1000]}```", color=discord.Color.red())
+                await loading.edit(content="", embed=embed)
+        except Exception as e:
+            print(f"[OPENROOM ERROR] {e}", flush=True)
+            try:
+                await loading.edit(content=f"❌ Error: {str(e)[:200]}", embed=None)
+            except:
+                await message.channel.send(f"❌ Error: {str(e)[:200]}")
+        return
+        if content.startswith("!openroom"):
+            try:
+                parts = message.content.split(maxsplit=1)
+                if len(parts) < 2:
+                    embed = discord.Embed(title="Usage", description="`!openroom <map_id> [room_name] [max_count] [password]`", color=discord.Color.blue())
+                    embed.add_field(name="Example", value="`!openroom 37f061acd1348dd71c27ba73aa7e9e01 MyRoom 10 pass123`", inline=False)
+                    await message.channel.send(embed=embed)
+                    return
+                args = parts[1].split()
+                map_id = args[0]
+                room_name = args[1] if len(args) >= 2 else "DarkN2ss Room"
+                max_count = args[2] if len(args) >= 3 else "10"
+                passwd = args[3] if len(args) >= 4 else ""
+                
+                loading = await message.channel.send(f"⏳ **Opening room:** `{room_name}` ...\nMap: `{map_id}`")
+                async with aiohttp.ClientSession() as session:
+                    params = {
+                        "map_id": map_id,
+                        "map_name": room_name,
+                        "room_name": room_name,
+                        "max_count": max_count,
+                        "uin": "1320454366",
+                        "uname": "%23B%23DarkN2ss.",
+                    }
+                    if passwd:
+                        params["passwd"] = passwd
+                    r = await session.get("https://proxy-darkn2ss.darknessweb.workers.dev/api/openroom", params=params, timeout=aiohttp.ClientTimeout(total=15))
+                    data = await r.json()
+                if data.get("code") == 0 or data.get("status") == "success":
+                    embed = discord.Embed(title="✅ Room Opened!", color=discord.Color.green())
+                    embed.add_field(name="Room Name", value=f"`{room_name}`", inline=True)
+                    embed.add_field(name="Map ID", value=f"`{map_id[:20]}...`", inline=True)
+                    embed.add_field(name="Max Players", value=f"`{max_count}`", inline=True)
+                    embed.add_field(name="Response", value=f"`{json.dumps(data)[:500]}`", inline=False)
+                    await loading.edit(content="", embed=embed)
+                else:
+                    embed = discord.Embed(title="❌ Open Room Failed", description=f"```json\n{json.dumps(data, indent=2)[:1000]}```", color=discord.Color.red())
+                    await loading.edit(content="", embed=embed)
+            except Exception as e:
+                print(f"[OPENROOM ERROR] {e}", flush=True)
+                try:
+                    await loading.edit(content=f"❌ Error: {str(e)[:200]}", embed=None)
+                except:
+                    await message.channel.send(f"❌ Error: {str(e)[:200]}")
+            return
 
     if content.startswith("!player"):
         try:
