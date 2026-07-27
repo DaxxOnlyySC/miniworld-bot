@@ -73,6 +73,7 @@ def is_rate_limited(status, text):
     return False
 
 active_bans = {}
+processed_messages = set()
 
 async def check_workers():
     global worker_status
@@ -408,6 +409,11 @@ async def on_ready():
 async def on_message(message):
     if message.author.bot:
         return
+    if message.id in processed_messages:
+        return
+    processed_messages.add(message.id)
+    if len(processed_messages) > 1000:
+        processed_messages.clear()
 
     content = message.content.lower()
 
@@ -548,7 +554,7 @@ async def on_message(message):
             await message.channel.send(embed=embed)
             print(f"[ACCESS] Removed {user_id} ({name}) by {message.author.id}", flush=True)
             return
-        if content.startswith("!check") or content.startswith("!list"):
+        if content.startswith("!check"):
             all_users = get_all_allowed()
             embed = discord.Embed(title="📋 Authorized Users (Kick/Ban Access)", color=discord.Color.blue())
             if all_users["hardcoded"]:
