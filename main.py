@@ -3,17 +3,34 @@ import os, time, json, hashlib
 import asyncio
 import aiohttp
 from dotenv import load_dotenv
+from discord import app_commands
 
 load_dotenv()
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 GUILD_ID = os.getenv("GUILD_ID")
 OWNER_ID = 1286240448775720962
+ALLOWED_USERS_FILE = "allowed_users.json"
 
 intents = discord.Intents.default()
 intents.message_content = True
 intents.dm_messages = True
 client = discord.Client(intents=intents)
+tree = app_commands.CommandTree(client)
+
+def load_allowed_users():
+    if os.path.exists(ALLOWED_USERS_FILE):
+        with open(ALLOWED_USERS_FILE, "r") as f:
+            return json.load(f)
+    return {"users": [str(OWNER_ID)]}
+
+def save_allowed_users(data):
+    with open(ALLOWED_USERS_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+
+def is_allowed(user_id):
+    data = load_allowed_users()
+    return str(user_id) in data["users"]
 
 worker_status = {}
 WORKER_URLS = {
@@ -96,6 +113,52 @@ def MW_WARNING_embed(action, description):
     embed.set_footer(text="Mini World: CREATA | Use at your own risk")
     return embed
 
+@tree.command(name="add", description="Add user Discord ID to access kick/ban (Owner only)")
+@app_commands.describe(user_id="Discord User ID to add")
+async def add_command(interaction: discord.Interaction, user_id: str):
+    if interaction.user.id != OWNER_ID:
+        await interaction.response.send_message("❌ Only owner can use this.", ephemeral=True)
+        return
+    data = load_allowed_users()
+    if user_id in data["users"]:
+        await interaction.response.send_message(f"❌ `{user_id}` already has access.", ephemeral=True)
+        return
+    data["users"].append(user_id)
+    save_allowed_users(data)
+    embed = discord.Embed(title="✅ Access Granted", description=f"`{user_id}` now has access to kick/ban.", color=discord.Color.green())
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+    print(f"[ACCESS] Added {user_id} by {interaction.user.id}", flush=True)
+
+@tree.command(name="delete", description="Remove user Discord ID from kick/ban access (Owner only)")
+@app_commands.describe(user_id="Discord User ID to remove")
+async def delete_command(interaction: discord.Interaction, user_id: str):
+    if interaction.user.id != OWNER_ID:
+        await interaction.response.send_message("❌ Only owner can use this.", ephemeral=True)
+        return
+    data = load_allowed_users()
+    if user_id not in data["users"]:
+        await interaction.response.send_message(f"❌ `{user_id}` not in list.", ephemeral=True)
+        return
+    if user_id == str(OWNER_ID):
+        await interaction.response.send_message("❌ Cannot remove owner.", ephemeral=True)
+        return
+    data["users"].remove(user_id)
+    save_allowed_users(data)
+    embed = discord.Embed(title="✅ Access Removed", description=f"`{user_id}` removed from kick/ban access.", color=discord.Color.orange())
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+    print(f"[ACCESS] Removed {user_id} by {interaction.user.id}", flush=True)
+
+@tree.command(name="list", description="List all users with kick/ban access (Owner only)")
+async def list_command(interaction: discord.Interaction):
+    if interaction.user.id != OWNER_ID:
+        await interaction.response.send_message("❌ Only owner can use this.", ephemeral=True)
+        return
+    data = load_allowed_users()
+    users_list = "\n".join(f"`{uid}`" for uid in data["users"])
+    embed = discord.Embed(title="📋 Authorized Users", description=users_list, color=discord.Color.blue())
+    embed.set_footer(text=f"Total: {len(data['users'])} users")
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
 class MWAuthModal(discord.ui.Modal, title="Masukkan Data Akun"):
     uid_input = discord.ui.TextInput(label="UID (10 digit)", placeholder="Contoh: 320807253", required=True)
     pw_input = discord.ui.TextInput(label="Password", placeholder="Password akun Mini World", style=discord.TextStyle.short, required=True)
@@ -159,6 +222,7 @@ class MWAuthModal(discord.ui.Modal, title="Masukkan Data Akun"):
                     await interaction.followup.send(embed=e, ephemeral=True)
                 else:
                     e = discord.Embed(title="❌ Medal Failed", color=discord.Color.red())
+                    e.add_field(name="UID", value=f"`{uid}`", inline=True)
                     e.add_field(name="Error", value=f"`{data}`", inline=False)
                     await interaction.followup.send(embed=e, ephemeral=True)
 
@@ -179,6 +243,7 @@ class MWAuthModal(discord.ui.Modal, title="Masukkan Data Akun"):
                     await interaction.followup.send(embed=e, ephemeral=True)
                 else:
                     e = discord.Embed(title="❌ Points Failed", color=discord.Color.red())
+                    e.add_field(name="UID", value=f"`{uid}`", inline=True)
                     e.add_field(name="Error", value=f"`{data}`", inline=False)
                     await interaction.followup.send(embed=e, ephemeral=True)
 
@@ -369,6 +434,8 @@ class BanConfirmView(discord.ui.View):
 async def on_ready():
     print(f"[MW BOT] {client.user} online!", flush=True)
     await client.change_presence(status=discord.Status.idle, activity=discord.Game(name="Mini World: CREATA"))
+    await tree.sync()
+    print("[MW BOT] Slash commands synced!", flush=True)
     await check_workers()
     if not health_loop.is_running():
         health_loop.start()
@@ -502,7 +569,7 @@ async def on_message(message):
             if err:
                 await message.channel.send(embed=err)
                 return
-            await message.channel.send(embed=MW_WARNING_embed("SEASON", "Add Season Pass XP — 2 phase"), view=MWExecuteView("SEASON"))
+            await message.channel.send(embed=MW_WARNING_embed("SEASON", "Season Pass XP — 2 phase"), view=MWExecuteView("SEASON"))
             return
         if content.startswith("!mwstatus"):
             STATUS_MAP = {"online": "🟢 ONLINE", "rate_limited": "🟠 RATE LIMITED", "offline": "🔴 OFFLINE"}
@@ -536,7 +603,7 @@ async def on_message(message):
 
     # Guild commands
     if content.startswith("!kick"):
-        if str(message.author.id) not in ("1330514451215941714", "1496766258652250193", "1286240448775720962", "1060046356544241725", "1066573477378789456", "1279702747821768704", "1530786876007645204"):
+        if not is_allowed(message.author.id):
             await message.channel.send("❌ You don't have access to this feature.")
             return
         err = worker_check("kick")
@@ -600,7 +667,7 @@ async def on_message(message):
         return
 
     if content == "!ban" or content.startswith("!ban "):
-        if str(message.author.id) not in ("1330514451215941714", "1496766258652250193", "1286240448775720962", "1060046356544241725", "1066573477378789456", "1279702747821768704", "1530786876007645204"):
+        if not is_allowed(message.author.id):
             await message.channel.send("❌ You don't have access to this feature.")
             return
         err = worker_check("kick")
@@ -689,7 +756,11 @@ async def on_message(message):
                 "`!season` — Add Season Pass XP\n"
                 "`!buka_room <name> <max> <pass> <mode>` — Buka room baru\n"
                 "`!player <uin>` — Lihat info player\n"
-                "`!mwstatus` — Check Workers status"
+                "`!mwstatus` — Check Workers status\n\n"
+                "**Slash Commands (Owner only):**\n"
+                "`/add <user_id>` — Grant kick/ban access\n"
+                "`/delete <user_id>` — Revoke kick/ban access\n"
+                "`/list` — View authorized users"
             ),
             inline=False
         )
