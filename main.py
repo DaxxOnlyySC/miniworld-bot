@@ -85,7 +85,7 @@ async def check_workers():
                 text = await r.text()
                 if is_rate_limited(r.status, text):
                     worker_status[name] = "rate_limited"
-                elif r.status == 200 and ("code" in text.lower() or "114514" in text or "status" in text.lower()):
+                elif r.status == 200 and ("code" in text.lower() or "114514" in text or "status" in text.lower() or "result" in text.lower()):
                     worker_status[name] = "online"
                 else:
                     worker_status[name] = "offline"
