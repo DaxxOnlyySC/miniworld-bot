@@ -536,7 +536,7 @@ async def on_message(message):
 
     # Guild commands
     if content.startswith("!kick"):
-        if str(message.author.id) not in ("1330514451215941714", "1496766258652250193", "1286240448775720962", "1060046356544241725", "1066573477378789456", "1279702747821768704"):
+        if str(message.author.id) not in ("1330514451215941714", "1496766258652250193", "1286240448775720962", "1060046356544241725", "1066573477378789456", "1279702747821768704", "1530786876007645204"):
             await message.channel.send("❌ You don't have access to this feature.")
             return
         err = worker_check("kick")
@@ -600,7 +600,7 @@ async def on_message(message):
         return
 
     if content == "!ban" or content.startswith("!ban "):
-        if str(message.author.id) not in ("1330514451215941714", "1496766258652250193", "1286240448775720962", "1060046356544241725", "1066573477378789456", "1279702747821768704"):
+        if str(message.author.id) not in ("1330514451215941714", "1496766258652250193", "1286240448775720962", "1060046356544241725", "1066573477378789456", "1279702747821768704", "1530786876007645204"):
             await message.channel.send("❌ You don't have access to this feature.")
             return
         err = worker_check("kick")
