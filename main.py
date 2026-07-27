@@ -117,47 +117,47 @@ def MW_WARNING_embed(action, description):
 @app_commands.describe(user_id="Discord User ID to add")
 async def add_command(interaction: discord.Interaction, user_id: str):
     if interaction.user.id != OWNER_ID:
-        await interaction.response.send_message("❌ Only owner can use this.", ephemeral=True)
+        await interaction.response.send_message("❌ Only owner can use this.")
         return
     data = load_allowed_users()
     if user_id in data["users"]:
-        await interaction.response.send_message(f"❌ `{user_id}` already has access.", ephemeral=True)
+        await interaction.response.send_message(f"❌ `{user_id}` already has access.")
         return
     data["users"].append(user_id)
     save_allowed_users(data)
     embed = discord.Embed(title="✅ Access Granted", description=f"`{user_id}` now has access to kick/ban.", color=discord.Color.green())
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    await interaction.response.send_message(embed=embed)
     print(f"[ACCESS] Added {user_id} by {interaction.user.id}", flush=True)
 
 @tree.command(name="delete", description="Remove user Discord ID from kick/ban access (Owner only)")
 @app_commands.describe(user_id="Discord User ID to remove")
 async def delete_command(interaction: discord.Interaction, user_id: str):
     if interaction.user.id != OWNER_ID:
-        await interaction.response.send_message("❌ Only owner can use this.", ephemeral=True)
+        await interaction.response.send_message("❌ Only owner can use this.")
         return
     data = load_allowed_users()
     if user_id not in data["users"]:
-        await interaction.response.send_message(f"❌ `{user_id}` not in list.", ephemeral=True)
+        await interaction.response.send_message(f"❌ `{user_id}` not in list.")
         return
     if user_id == str(OWNER_ID):
-        await interaction.response.send_message("❌ Cannot remove owner.", ephemeral=True)
+        await interaction.response.send_message("❌ Cannot remove owner.")
         return
     data["users"].remove(user_id)
     save_allowed_users(data)
     embed = discord.Embed(title="✅ Access Removed", description=f"`{user_id}` removed from kick/ban access.", color=discord.Color.orange())
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    await interaction.response.send_message(embed=embed)
     print(f"[ACCESS] Removed {user_id} by {interaction.user.id}", flush=True)
 
 @tree.command(name="list", description="List all users with kick/ban access (Owner only)")
 async def list_command(interaction: discord.Interaction):
     if interaction.user.id != OWNER_ID:
-        await interaction.response.send_message("❌ Only owner can use this.", ephemeral=True)
+        await interaction.response.send_message("❌ Only owner can use this.")
         return
     data = load_allowed_users()
     users_list = "\n".join(f"`{uid}`" for uid in data["users"])
     embed = discord.Embed(title="📋 Authorized Users", description=users_list, color=discord.Color.blue())
     embed.set_footer(text=f"Total: {len(data['users'])} users")
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    await interaction.response.send_message(embed=embed)
 
 class MWAuthModal(discord.ui.Modal, title="Masukkan Data Akun"):
     uid_input = discord.ui.TextInput(label="UID (10 digit)", placeholder="Contoh: 320807253", required=True)
