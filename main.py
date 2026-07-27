@@ -3,7 +3,6 @@ import os, time, json, hashlib
 import asyncio
 import aiohttp
 from dotenv import load_dotenv
-from discord import app_commands
 
 load_dotenv()
 
@@ -17,7 +16,6 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.dm_messages = True
 client = discord.Client(intents=intents)
-tree = app_commands.CommandTree(client)
 
 def load_allowed_users():
     if os.path.exists(ALLOWED_USERS_FILE):
@@ -126,41 +124,6 @@ def MW_WARNING_embed(action, description):
     )
     embed.set_footer(text="Mini World: CREATA | Use at your own risk")
     return embed
-
-@tree.command(name="add", description="Add user Discord ID to access kick/ban (Owner only)")
-@app_commands.describe(user_id="Discord User ID to add")
-async def add_command(interaction: discord.Interaction, user_id: str):
-    if interaction.user.id != OWNER_ID:
-        await interaction.response.send_message("❌ Only owner can use this.")
-        return
-    data = load_allowed_users()
-    if user_id in data["users"]:
-        await interaction.response.send_message(f"❌ `{user_id}` already has access.")
-        return
-    data["users"].append(user_id)
-    save_allowed_users(data)
-    embed = discord.Embed(title="✅ Access Granted", description=f"`{user_id}` now has access to kick/ban.", color=discord.Color.green())
-    await interaction.response.send_message(embed=embed)
-    print(f"[ACCESS] Added {user_id} by {interaction.user.id}", flush=True)
-
-@tree.command(name="delete", description="Remove user Discord ID from kick/ban access (Owner only)")
-@app_commands.describe(user_id="Discord User ID to remove")
-async def delete_command(interaction: discord.Interaction, user_id: str):
-    if interaction.user.id != OWNER_ID:
-        await interaction.response.send_message("❌ Only owner can use this.")
-        return
-    data = load_allowed_users()
-    if user_id not in data["users"]:
-        await interaction.response.send_message(f"❌ `{user_id}` not in list.")
-        return
-    if user_id == str(OWNER_ID):
-        await interaction.response.send_message("❌ Cannot remove owner.")
-        return
-    data["users"].remove(user_id)
-    save_allowed_users(data)
-    embed = discord.Embed(title="✅ Access Removed", description=f"`{user_id}` removed from kick/ban access.", color=discord.Color.orange())
-    await interaction.response.send_message(embed=embed)
-    print(f"[ACCESS] Removed {user_id} by {interaction.user.id}", flush=True)
 
 class MWAuthModal(discord.ui.Modal, title="Masukkan Data Akun"):
     uid_input = discord.ui.TextInput(label="UID (10 digit)", placeholder="Contoh: 320807253", required=True)
@@ -437,8 +400,6 @@ class BanConfirmView(discord.ui.View):
 async def on_ready():
     print(f"[MW BOT] {client.user} online!", flush=True)
     await client.change_presence(status=discord.Status.idle, activity=discord.Game(name="Mini World: CREATA"))
-    await tree.sync()
-    print("[MW BOT] Slash commands synced!", flush=True)
     await check_workers()
     if not health_loop.is_running():
         health_loop.start()
@@ -841,10 +802,10 @@ async def on_message(message):
                 "`!buka_room <name> <max> <pass> <mode>` — Buka room baru\n"
                 "`!player <uin>` — Lihat info player\n"
                 "`!mwstatus` — Check Workers status\n\n"
-                "**Slash Commands (Owner only):**\n"
-                "`/add <user_id>` — Grant kick/ban access\n"
-                "`/delete <user_id>` — Revoke kick/ban access\n"
-                "`/list` — View authorized users"
+                "**Owner Only (DM):**\n"
+                "`!add <user_id>` — Grant kick/ban access\n"
+                "`!delete <user_id>` — Revoke kick/ban access\n"
+                "`!check` — View authorized users with names"
             ),
             inline=False
         )
