@@ -535,6 +535,73 @@ async def on_message(message):
             embed = discord.Embed(title="✅ UNBAN SUCCESS", description=f"UID `{target}` is no longer banned.", color=discord.Color.green())
             await message.channel.send(embed=embed)
             return
+        if content.startswith("!add"):
+            parts = message.content.split()
+            if len(parts) < 2:
+                await message.channel.send("Usage: `!add <discord_user_id>`")
+                return
+            user_id = parts[1]
+            data = load_allowed_users()
+            if user_id in data["users"]:
+                await message.channel.send(f"❌ `{user_id}` already has access.")
+                return
+            data["users"].append(user_id)
+            save_allowed_users(data)
+            try:
+                user = await client.fetch_user(int(user_id))
+                name = f"{user.name}#{user.discriminator}"
+            except:
+                name = "Unknown"
+            embed = discord.Embed(title="✅ Access Granted", color=discord.Color.green())
+            embed.add_field(name="User ID", value=f"`{user_id}`", inline=True)
+            embed.add_field(name="Discord Name", value=f"`{name}`", inline=True)
+            await message.channel.send(embed=embed)
+            print(f"[ACCESS] Added {user_id} ({name}) by {message.author.id}", flush=True)
+            return
+        if content.startswith("!delete"):
+            parts = message.content.split()
+            if len(parts) < 2:
+                await message.channel.send("Usage: `!delete <discord_user_id>`")
+                return
+            user_id = parts[1]
+            data = load_allowed_users()
+            if user_id not in data["users"]:
+                await message.channel.send(f"❌ `{user_id}` not in list.")
+                return
+            if user_id == str(OWNER_ID):
+                await message.channel.send("❌ Cannot remove owner.")
+                return
+            data["users"].remove(user_id)
+            save_allowed_users(data)
+            try:
+                user = await client.fetch_user(int(user_id))
+                name = f"{user.name}#{user.discriminator}"
+            except:
+                name = "Unknown"
+            embed = discord.Embed(title="✅ Access Removed", color=discord.Color.orange())
+            embed.add_field(name="User ID", value=f"`{user_id}`", inline=True)
+            embed.add_field(name="Discord Name", value=f"`{name}`", inline=True)
+            await message.channel.send(embed=embed)
+            print(f"[ACCESS] Removed {user_id} ({name}) by {message.author.id}", flush=True)
+            return
+        if content.startswith("!check") or content.startswith("!list"):
+            data = load_allowed_users()
+            if not data["users"]:
+                await message.channel.send("📋 No authorized users.")
+                return
+            embed = discord.Embed(title="📋 Authorized Users (Kick/Ban Access)", color=discord.Color.blue())
+            for uid in data["users"]:
+                try:
+                    user = await client.fetch_user(int(uid))
+                    name = f"{user.name}#{user.discriminator}"
+                    is_owner_tag = " 👑" if uid == str(OWNER_ID) else ""
+                    embed.add_field(name=f"`{uid}`{is_owner_tag}", value=f"**{name}**", inline=True)
+                except:
+                    is_owner_tag = " 👑" if uid == str(OWNER_ID) else ""
+                    embed.add_field(name=f"`{uid}`{is_owner_tag}", value="Unknown", inline=True)
+            embed.set_footer(text=f"Total: {len(data['users'])} users")
+            await message.channel.send(embed=embed)
+            return
         if content.startswith("!fans"):
             err = worker_check("fans")
             if err:
@@ -594,7 +661,11 @@ async def on_message(message):
                 "`!season` — Season Pass XP\n"
                 "`!buka_room <name> <max> <pass> <mode>` — Buka room baru\n"
                 "`!player <uin>` — Lihat info player\n"
-                "`!mwstatus` — Check Workers status"
+                "`!mwstatus` — Check Workers status\n\n"
+                "**Owner Only:**\n"
+                "`!add <user_id>` — Grant kick/ban access\n"
+                "`!delete <user_id>` — Revoke kick/ban access\n"
+                "`!check` — View authorized users with names"
             ), inline=False)
             embed.set_footer(text="Mini World: CREATA Bot")
             await message.channel.send(embed=embed)
