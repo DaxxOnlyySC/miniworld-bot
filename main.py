@@ -951,4 +951,5 @@ async def on_message(message):
         await message.channel.send(embed=embed)
         return
 
+print("[BOT] Starting Mini World Command Bot...", flush=True)
 client.run(DISCORD_TOKEN)
