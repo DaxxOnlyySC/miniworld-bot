@@ -2,6 +2,8 @@ import discord
 import os, time, json, hashlib
 import asyncio
 import aiohttp
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -951,5 +953,20 @@ async def on_message(message):
         await message.channel.send(embed=embed)
         return
 
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"OK")
+    def log_message(self, format, *args):
+        pass
+
+def start_health_server():
+    server = HTTPServer(("0.0.0.0", 8080), HealthHandler)
+    server.serve_forever()
+
+print("[BOT] Starting health server on :8080...", flush=True)
+threading.Thread(target=start_health_server, daemon=True).start()
 print("[BOT] Starting Mini World Command Bot...", flush=True)
 client.run(DISCORD_TOKEN)
