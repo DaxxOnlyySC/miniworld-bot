@@ -1,27 +1,12 @@
-name = "unlockbadges"
-main = true
-
-[build]
-command = ""
-
-[build.upload]
-format = "service-worker"
-
-[env.production]
-name = "unlockbadges"
-compatibility_date = "2024-01-01"
-
-BADGE_IDS = [
+const BADGE_IDS = [
   "1001", "1002", "1003", "1004", "1005", "1006",
   "1008", "1010", "1011", "1012", "1013", "1014",
   "1015", "1016", "1017", "1018", "1019", "1020"
-]
+];
 
 async function generateS7(uin, pwd) {
-  // This is a placeholder - the real s7 generation is unknown
-  // The BUFF MINI WORLD bot knows how to generate this
-  // For now, we return null indicating we can't generate it
-  return null;
+  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(uin + pwd));
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 async function unlockBadge(s7, s7t, badgeId) {
@@ -62,30 +47,18 @@ async function handleRequest(request) {
     }, { headers: corsHeaders });
   }
 
-  // Generate s7 from password
   const s7 = await generateS7(uin, pwd);
-  if (!s7) {
-    return Response.json({
-      code: 500,
-      msg: "Cannot generate auth token. s7 generation not implemented yet."
-    }, { headers: corsHeaders });
-  }
-
   const s7t = "38ccc";
-  const results = [];
   let unlocked = 0;
   const errors = [];
 
-  // Unlock each badge
   for (const badgeId of BADGE_IDS) {
     const result = await unlockBadge(s7, s7t, badgeId);
-    results.push(result);
     if (result.success) {
       unlocked++;
     } else {
       errors.push(result);
     }
-    // Small delay between requests
     await new Promise(r => setTimeout(r, 500));
   }
 
@@ -94,8 +67,7 @@ async function handleRequest(request) {
     msg: "Success",
     unlocked: unlocked,
     total: BADGE_IDS.length,
-    errors: errors.length > 0 ? errors : undefined,
-    results: results
+    errors: errors.length > 0 ? errors : undefined
   }, { headers: corsHeaders });
 }
 

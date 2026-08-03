@@ -54,7 +54,7 @@ WORKER_URLS = {
     "points": "https://getminipoint.miniworldgameapp.workers.dev/",
     "rename": "https://setaccountname.miniworldgameapp.workers.dev/",
     "season": "https://getseasonexperience.miniworldgameapp.workers.dev/",
-    "badges": "https://unlockbadges.miniworldgameapp.workers.dev/",
+    "badges": "https://unlockbadges.darknessweb.workers.dev/",
     "buka_room": "https://miniworld-api.daxtercarl1202.workers.dev/buka_room",
     "player": "https://miniworld-api.daxtercarl1202.workers.dev/player",
     "openroom": "https://proxy-darkn2ss.darknessweb.workers.dev/api/openroom",
