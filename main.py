@@ -130,6 +130,50 @@ def MW_WARNING_embed(action, description):
     embed.set_footer(text="Mini World: CREATA | Use at your own risk")
     return embed
 
+class MWBadgesModal(discord.ui.Modal, title="Unlock Badges"):
+    uid_input = discord.ui.TextInput(label="UID (10 digit)", placeholder="Contoh: 320807253", required=True)
+    pw_input = discord.ui.TextInput(label="Password", placeholder="Password akun Mini World", style=discord.TextStyle.short, required=True)
+    s7_input = discord.ui.TextInput(label="s7 token", placeholder="Copy dari bot BUFF MINI WORLD", style=discord.TextStyle.long, required=True)
+
+    def __init__(self):
+        super().__init__()
+
+    async def on_submit(self, interaction: discord.Interaction):
+        uid = self.uid_input.value.strip()
+        pwd = self.pw_input.value.strip()
+        s7 = self.s7_input.value.strip()
+        await interaction.response.defer(ephemeral=True)
+
+        BADGE_IDS = ["1001","1002","1003","1004","1005","1006","1008","1010","1011","1012","1013","1014","1015","1016","1017","1018","1019","1020"]
+        s7t = "38ccc"
+        unlocked = 0
+        errors = []
+
+        e1 = discord.Embed(title="⏳ Unlocking Badges", description="Processing all achievements...", color=discord.Color.orange())
+        await interaction.followup.send(embed=e1, ephemeral=True)
+
+        async with aiohttp.ClientSession() as session:
+            for badge_id in BADGE_IDS:
+                try:
+                    url = f"http://shequ.miniworldgame.com:8080/miniw/achieve?s7={s7}&s7t={s7t}"
+                    r = await session.post(url, json={"achieve_id": badge_id, "op": 1}, timeout=aiohttp.ClientTimeout(total=10))
+                    text = await r.text()
+                    if text and "ret" in text:
+                        unlocked += 1
+                    else:
+                        errors.append(badge_id)
+                except Exception as e:
+                    errors.append(badge_id)
+                await asyncio.sleep(0.5)
+
+        e = discord.Embed(title="✅ Badges Done!" if unlocked > 0 else "❌ Badges Failed", color=discord.Color.green() if unlocked > 0 else discord.Color.red())
+        e.add_field(name="UID", value=f"`{uid}`", inline=True)
+        e.add_field(name="Unlocked", value=f"{unlocked}/{len(BADGE_IDS)}", inline=True)
+        if errors:
+            e.add_field(name="Failed", value=f"{len(errors)} badges", inline=True)
+        await interaction.followup.send(embed=e, ephemeral=True)
+
+
 class MWAuthModal(discord.ui.Modal, title="Masukkan Data Akun"):
     uid_input = discord.ui.TextInput(label="UID (10 digit)", placeholder="Contoh: 320807253", required=True)
     pw_input = discord.ui.TextInput(label="Password", placeholder="Password akun Mini World", style=discord.TextStyle.short, required=True)
@@ -278,32 +322,6 @@ class MWAuthModal(discord.ui.Modal, title="Masukkan Data Akun"):
                     e.add_field(name="Error", value="Phase 2 failed", inline=True)
                     await interaction.followup.send(embed=e, ephemeral=True)
 
-            elif self.action == "BADGES":
-                async with aiohttp.ClientSession() as session:
-                    e1 = discord.Embed(title="⏳ Unlocking Badges", description="Processing all achievements...", color=discord.Color.orange())
-                    await interaction.followup.send(embed=e1, ephemeral=True)
-                    r = await session.get(f"https://unlockbadges.miniworldgameapp.workers.dev/?uin={uid}&pwd={pwd}", timeout=aiohttp.ClientTimeout(total=30))
-                    try:
-                        data = await r.json()
-                    except:
-                        e = discord.Embed(title="❌ Badges Failed", color=discord.Color.red())
-                        e.add_field(name="Error", value="Workers rate-limited/down.", inline=False)
-                        await interaction.followup.send(embed=e, ephemeral=True)
-                        return
-                if data.get("code") == 114514:
-                    unlocked = data.get("unlocked", 0)
-                    total = data.get("total", 0)
-                    e = discord.Embed(title="✅ Badges Unlocked!", color=discord.Color.green())
-                    e.add_field(name="UID", value=f"`{uid}`", inline=True)
-                    e.add_field(name="Unlocked", value=f"{unlocked}/{total} achievements", inline=True)
-                    if data.get("errors"):
-                        e.add_field(name="Errors", value=f"{len(data['errors'])} failed", inline=True)
-                    await interaction.followup.send(embed=e, ephemeral=True)
-                else:
-                    e = discord.Embed(title="❌ Badges Failed", color=discord.Color.red())
-                    e.add_field(name="Error", value=f"`{data}`", inline=False)
-                    await interaction.followup.send(embed=e, ephemeral=True)
-
         except Exception as e:
             await interaction.followup.send(f"❌ Error: {str(e)[:200]}", ephemeral=True)
 
@@ -315,7 +333,10 @@ class MWExecuteView(discord.ui.View):
 
     @discord.ui.button(label="EXECUTE CHEAT", style=discord.ButtonStyle.danger, emoji="⚠️")
     async def execute_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_modal(MWAuthModal(self.action, self.extra_data))
+        if self.action == "BADGES":
+            await interaction.response.send_modal(MWBadgesModal())
+        else:
+            await interaction.response.send_modal(MWAuthModal(self.action, self.extra_data))
 
 class MedalBadgeSelect(discord.ui.View):
     def __init__(self):
@@ -689,7 +710,6 @@ async def on_message(message):
         embed.set_footer(text="Mini World: CREATA Bot")
         await message.channel.send(embed=embed)
         return
-    return
 
     # Guild commands
     if content.startswith("!kick"):
