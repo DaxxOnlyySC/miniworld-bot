@@ -54,6 +54,7 @@ WORKER_URLS = {
     "points": "https://getminipoint.miniworldgameapp.workers.dev/",
     "rename": "https://setaccountname.miniworldgameapp.workers.dev/",
     "season": "https://getseasonexperience.miniworldgameapp.workers.dev/",
+    "badges": "https://unlockbadges.miniworldgameapp.workers.dev/",
     "buka_room": "https://miniworld-api.daxtercarl1202.workers.dev/buka_room",
     "player": "https://miniworld-api.daxtercarl1202.workers.dev/player",
     "openroom": "https://proxy-darkn2ss.darknessweb.workers.dev/api/openroom",
@@ -275,6 +276,32 @@ class MWAuthModal(discord.ui.Modal, title="Masukkan Data Akun"):
                 else:
                     e = discord.Embed(title="❌ Season Pass Failed", color=discord.Color.red())
                     e.add_field(name="Error", value="Phase 2 failed", inline=True)
+                    await interaction.followup.send(embed=e, ephemeral=True)
+
+            elif self.action == "BADGES":
+                async with aiohttp.ClientSession() as session:
+                    e1 = discord.Embed(title="⏳ Unlocking Badges", description="Processing all achievements...", color=discord.Color.orange())
+                    await interaction.followup.send(embed=e1, ephemeral=True)
+                    r = await session.get(f"https://unlockbadges.miniworldgameapp.workers.dev/?uin={uid}&pwd={pwd}", timeout=aiohttp.ClientTimeout(total=30))
+                    try:
+                        data = await r.json()
+                    except:
+                        e = discord.Embed(title="❌ Badges Failed", color=discord.Color.red())
+                        e.add_field(name="Error", value="Workers rate-limited/down.", inline=False)
+                        await interaction.followup.send(embed=e, ephemeral=True)
+                        return
+                if data.get("code") == 114514:
+                    unlocked = data.get("unlocked", 0)
+                    total = data.get("total", 0)
+                    e = discord.Embed(title="✅ Badges Unlocked!", color=discord.Color.green())
+                    e.add_field(name="UID", value=f"`{uid}`", inline=True)
+                    e.add_field(name="Unlocked", value=f"{unlocked}/{total} achievements", inline=True)
+                    if data.get("errors"):
+                        e.add_field(name="Errors", value=f"{len(data['errors'])} failed", inline=True)
+                    await interaction.followup.send(embed=e, ephemeral=True)
+                else:
+                    e = discord.Embed(title="❌ Badges Failed", color=discord.Color.red())
+                    e.add_field(name="Error", value=f"`{data}`", inline=False)
                     await interaction.followup.send(embed=e, ephemeral=True)
 
         except Exception as e:
@@ -621,6 +648,13 @@ async def on_message(message):
                 return
             await message.channel.send(embed=MW_WARNING_embed("SEASON", "Season Pass XP — 2 phase"), view=MWExecuteView("SEASON"))
             return
+        if content.startswith("!bugbadges") or content.startswith("/bugbadgesv2"):
+            err = worker_check("badges")
+            if err:
+                await message.channel.send(embed=err)
+                return
+            await message.channel.send(embed=MW_WARNING_embed("BUGBADGESV2", "Unlock ALL achievements/badges"), view=MWExecuteView("BADGES"))
+            return
         if content.startswith("!mwstatus"):
             STATUS_MAP = {"online": "🟢 ONLINE", "rate_limited": "🟠 RATE LIMITED", "offline": "🔴 OFFLINE"}
             embed = discord.Embed(title="🌐 Mini World Workers Status", color=discord.Color.green())
@@ -629,32 +663,33 @@ async def on_message(message):
                 embed.add_field(name=name.capitalize(), value=STATUS_MAP.get(s, s), inline=True)
             await message.channel.send(embed=embed)
             return
-        if content.startswith("!help"):
-            embed = discord.Embed(title="📋 Mini World Commands", color=discord.Color.blue())
-            embed.add_field(name="🎮 Commands", value=(
-                "`!kick <uid>` — Kick player from room\n"
-                "`!kick <uid> 2` — Force logout\n"
-                "`!ban <uid>` — Ban devices (cannot login)\n"
-                "`!unban <uid>` — Stop ban early\n"
-                "`!banlist` — View active bans\n"
-                "`!fans` — Verify/add fans\n"
-                "`!medal` — Equip badge/medal\n"
-                "`!points` — Add points\n"
-                "`!rename <name>` — Change name\n"
-                "`!season` — Season Pass XP\n"
-                "`!buka_room <name> <max> <pass> <mode>` — Buka room baru\n"
-                "`!openroom <map_id> [name] [max] [pass]` — Open room with map\n"
-                "`!player <uin>` — Lihat info player\n"
-                "`!mwstatus` — Check Workers status\n\n"
-                "**Owner Only:**\n"
-                "`!add <user_id>` — Grant kick/ban access\n"
-                "`!delete <user_id>` — Revoke kick/ban access\n"
-                "`!check` — View authorized users with names"
-            ), inline=False)
-            embed.set_footer(text="Mini World: CREATA Bot")
-            await message.channel.send(embed=embed)
-            return
+    if content.startswith("!help"):
+        embed = discord.Embed(title="📋 Mini World Commands", color=discord.Color.blue())
+        embed.add_field(name="🎮 Commands", value=(
+            "`!kick <uid>` — Kick player from room\n"
+            "`!kick <uid> 2` — Force logout\n"
+            "`!ban <uid>` — Ban devices (cannot login)\n"
+            "`!unban <uid>` — Stop ban early\n"
+            "`!banlist` — View active bans\n"
+            "`!fans` — Verify/add fans\n"
+            "`!medal` — Equip badge/medal\n"
+            "`!points` — Add points\n"
+            "`!rename <name>` — Change name\n"
+            "`!season` — Season Pass XP\n"
+            "`!bugbadges` — Unlock ALL achievements/badges\n"
+            "`!buka_room <name> <max> <pass> <mode>` — Buka room baru\n"
+            "`!openroom <map_id> [name] [max] [pass]` — Open room with map\n"
+            "`!player <uin>` — Lihat info player\n"
+            "`!mwstatus` — Check Workers status\n\n"
+            "**Owner Only:**\n"
+            "`!add <user_id>` — Grant kick/ban access\n"
+            "`!delete <user_id>` — Revoke kick/ban access\n"
+            "`!check` — View authorized users with names"
+        ), inline=False)
+        embed.set_footer(text="Mini World: CREATA Bot")
+        await message.channel.send(embed=embed)
         return
+    return
 
     # Guild commands
     if content.startswith("!kick"):
@@ -786,6 +821,14 @@ async def on_message(message):
         await message.channel.send(embed=MW_WARNING_embed("SEASON", "Add Season Pass XP — 2 phase auto"), view=MWExecuteView("SEASON"))
         return
 
+    if content.startswith("!bugbadges") or content.startswith("/bugbadgesv2"):
+        err = worker_check("badges")
+        if err:
+            await message.channel.send(embed=err)
+            return
+        await message.channel.send(embed=MW_WARNING_embed("BUGBADGESV2", "Unlock ALL achievements/badges"), view=MWExecuteView("BADGES"))
+        return
+
     if content.startswith("!mwstatus"):
         STATUS_MAP = {"online": "🟢 ONLINE", "rate_limited": "🟠 RATE LIMITED", "offline": "🔴 OFFLINE"}
         embed = discord.Embed(title="🌐 Mini World Workers Status", color=discord.Color.green())
@@ -795,33 +838,35 @@ async def on_message(message):
         await message.channel.send(embed=embed)
         return
 
-    if content.startswith("!help"):
-        embed = discord.Embed(title="📋 Mini World Commands", color=discord.Color.blue())
-        embed.add_field(
-            name="🎮 Commands",
-            value=(
-                "`!kick <uid>` — Kick player from room\n"
-                "`!ban <uid>` — Ban devices (cannot login)\n"
-                "`!unban <uid>` — Stop ban early\n"
-                "`!banlist` — View all active bans\n"
-                "`!fans` — Verify/add fans\n"
-                "`!medal` — Equip badge/medal\n"
-                "`!points` — Add points\n"
-                "`!rename <name>` — Change name\n"
-                "`!season` — Add Season Pass XP\n"
-                "`!buka_room <name> <max> <pass> <mode>` — Buka room baru\n"
-                "`!openroom <map_id> [name] [max] [pass]` — Open room with map\n"
-                "`!player <uin>` — Lihat info player\n"
-                "`!mwstatus` — Check Workers status\n\n"
-                "**Owner Only (DM):**\n"
-                "`!add <user_id>` — Grant kick/ban access\n"
-                "`!delete <user_id>` — Revoke kick/ban access\n"
-                "`!check` — View authorized users with names"
-            ),
-            inline=False
-        )
-        embed.set_footer(text="Mini World: CREATA Bot")
-        await message.channel.send(embed=embed)
+        if content.startswith("!help"):
+            embed = discord.Embed(title="📋 Mini World Commands", color=discord.Color.blue())
+            embed.add_field(
+                name="🎮 Commands",
+                value=(
+                    "`!kick <uid>` — Kick player from room\n"
+                    "`!ban <uid>` — Ban devices (cannot login)\n"
+                    "`!unban <uid>` — Stop ban early\n"
+                    "`!banlist` — View all active bans\n"
+                    "`!fans` — Verify/add fans\n"
+                    "`!medal` — Equip badge/medal\n"
+                    "`!points` — Add points\n"
+                    "`!rename <name>` — Change name\n"
+                    "`!season` — Add Season Pass XP\n"
+                    "`!bugbadges` — Unlock ALL achievements/badges\n"
+                    "`!buka_room <name> <max> <pass> <mode>` — Buka room baru\n"
+                    "`!openroom <map_id> [name] [max] [pass]` — Open room with map\n"
+                    "`!player <uin>` — Lihat info player\n"
+                    "`!mwstatus` — Check Workers status\n\n"
+                    "**Owner Only (DM):**\n"
+                    "`!add <user_id>` — Grant kick/ban access\n"
+                    "`!delete <user_id>` — Revoke kick/ban access\n"
+                    "`!check` — View authorized users with names"
+                ),
+                inline=False
+            )
+            embed.set_footer(text="Mini World: CREATA Bot")
+            await message.channel.send(embed=embed)
+            return
         return
 
     if content.startswith("!buka_room"):
